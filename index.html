@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>出勤分析工具</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, 'PingFang SC', 'SF Pro Display', sans-serif; background: #f7f8fa; color: #1a1a1a; min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+    /* Header */
+    .header { background: #fff; border-bottom: 1px solid #eee; padding: 0 48px; height: 60px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+    .logo { font-size: 17px; font-weight: 600; color: #111; letter-spacing: -0.3px; display: flex; align-items: center; gap: 10px; }
+    .logo-icon { width: 28px; height: 28px; background: #111; border-radius: 7px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 13px; }
+    .header-tag { font-size: 12px; color: #999; background: #f5f5f5; padding: 4px 10px; border-radius: 12px; }
+
+    /* Hero */
+    .hero { text-align: center; padding: 64px 24px 40px; background: #fff; border-bottom: 1px solid #eee; }
+    .hero h1 { font-size: 32px; font-weight: 700; color: #111; letter-spacing: -0.8px; margin-bottom: 10px; }
+    .hero p { font-size: 15px; color: #888; }
+
+    /* Container */
+    .container { max-width: 1000px; margin: 0 auto; padding: 32px 24px 80px; }
+
+    /* Toolbar */
+    .toolbar { display: none; align-items: center; gap: 12px; padding: 16px 20px; background: #fff; border: 1px solid #eee; border-radius: 14px; margin-bottom: 20px; flex-wrap: wrap; }
+    .toolbar.show { display: flex; }
+    .toolbar-left { display: flex; gap: 10px; align-items: center; flex: 1; flex-wrap: wrap; }
+
+    .input-group { display: flex; align-items: center; gap: 8px; background: #f7f8fa; border-radius: 10px; padding: 8px 14px; font-size: 13px; color: #666; }
+    .input-group label { font-weight: 500; color: #333; }
+    .input-group input { border: none; outline: none; width: 50px; font-size: 16px; font-weight: 600; color: #111; background: transparent; text-align: center; }
+    .input-group span { color: #999; }
+
+    .sort-group { display: flex; align-items: center; gap: 8px; background: #f7f8fa; border-radius: 10px; padding: 8px 12px; }
+    .sort-group select { border: none; outline: none; background: transparent; font-size: 13px; color: #333; font-weight: 500; cursor: pointer; }
+    .sort-btn { width: 30px; height: 30px; border: none; background: #fff; border-radius: 7px; cursor: pointer; font-size: 15px; display: flex; align-items: center; justify-content: center; color: #666; border: 1px solid #e5e5e5; transition: all .15s; }
+    .sort-btn:hover { background: #f0f0f0; }
+
+    .stat { font-size: 13px; color: #666; background: #f7f8fa; padding: 6px 12px; border-radius: 20px; display: flex; align-items: center; gap: 5px; }
+    .stat .num { font-weight: 600; color: #111; }
+    .stat.danger { color: #d93025; background: #fde8e8; }
+    .stat.danger .num { color: #d93025; }
+    .stat.ok { color: #1a7336; background: #e6f4ea; }
+    .stat.ok .num { color: #1a7336; }
+
+    .btn { padding: 9px 18px; border-radius: 10px; border: none; cursor: pointer; font-size: 13px; font-weight: 600; transition: all .15s; display: inline-flex; align-items: center; gap: 6px; }
+    .btn-ghost { background: #fff; color: #666; border: 1px solid #e5e5e5; }
+    .btn-ghost:hover { background: #f5f5f5; }
+    .btn-dark { background: #111; color: #fff; }
+    .btn-dark:hover { background: #333; }
+    .btn:disabled { opacity: .35; cursor: not-allowed; }
+
+    /* Upload */
+    .upload { border: 2px dashed #e0e0e0; border-radius: 18px; padding: 60px 24px; text-align: center; cursor: pointer; transition: all .25s; background: #fff; position: relative; margin-bottom: 24px; }
+    .upload:hover { border-color: #111; background: #fafafa; }
+    .upload input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+    .upload .icon { font-size: 38px; margin-bottom: 14px; }
+    .upload h3 { font-size: 17px; font-weight: 600; color: #111; margin-bottom: 6px; }
+    .upload p { font-size: 13px; color: #999; }
+    .upload.done { border-color: #1a7336; border-style: solid; background: #f8fdf9; }
+    .upload.done .icon::after { content: ' ✓'; font-size: 22px; color: #1a7336; }
+
+    /* Table */
+    .table-wrap { background: #fff; border: 1px solid #eee; border-radius: 18px; overflow: hidden; display: none; }
+    .table-wrap.show { display: block; }
+    .table-scroll { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    thead tr { background: #fafafa; border-bottom: 1px solid #eee; }
+    thead th { padding: 14px 18px; text-align: left; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: #999; white-space: nowrap; cursor: pointer; user-select: none; transition: color .15s; }
+    thead th:hover { color: #111; }
+    thead th.sorted { color: #111; }
+    thead th .arrow { margin-left: 3px; opacity: .3; font-size: 10px; }
+    thead th.sorted .arrow { opacity: 1; }
+    tbody td { padding: 12px 18px; border-bottom: 1px solid #f5f5f5; color: #333; white-space: nowrap; }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover td { background: #fafafa; }
+    .rank { color: #bbb; font-size: 12px; font-weight: 500; width: 36px; text-align: center; }
+    .name { font-weight: 600; color: #111; }
+    .val { }
+    .low { background: #fde8e8; color: #d93025 !important; font-weight: 700; border-radius: 5px; padding: 1px 7px; display: inline-block; }
+    .total { font-weight: 700; color: #111; font-size: 15px; }
+
+    .legend { display: none; padding: 14px 18px; border-top: 1px solid #f5f5f5; font-size: 12px; color: #999; gap: 20px; flex-wrap: wrap; }
+    .legend.show { display: flex; }
+    .legend-item { display: flex; align-items: center; gap: 7px; }
+    .legend-dot { width: 10px; height: 10px; border-radius: 3px; }
+
+    /* Footer */
+    .footer { text-align: center; font-size: 12px; color: #ccc; padding: 24px 0; }
+
+    @media (max-width: 640px) {
+      .header { padding: 0 20px; }
+      .hero h1 { font-size: 24px; }
+      .hero { padding: 40px 20px 28px; }
+      .toolbar { padding: 12px 14px; }
+      .container { padding: 20px 16px 60px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">
+    <div class="logo-icon">📊</div>
+    Attendance
+  </div>
+  <div class="header-tag">纯前端 · 数据不上传</div>
+</div>
+
+<div class="hero">
+  <h1>出勤分析工具</h1>
+  <p>上传 Excel / CSV，自动排序，低于阈值标红高亮</p>
+</div>
+
+<div class="container">
+
+  <div class="toolbar" id="toolbar">
+    <div class="toolbar-left">
+      <div class="input-group">
+        <label>阈值</label>
+        <input type="number" id="thresholdInput" value="90" min="1">
+        <span>分钟</span>
+      </div>
+      <div class="sort-group">
+        <select id="sortSelect" onchange="sortBySelect()">
+          <option value="__total__">合计时长</option>
+        </select>
+        <button class="sort-btn" id="sortDirBtn" onclick="toggleDir()">↓</button>
+      </div>
+      <div id="stats"></div>
+    </div>
+    <button class="btn btn-ghost" id="clearBtn" onclick="clearAll()" disabled>清空</button>
+    <button class="btn btn-dark" id="exportBtn" onclick="exportData()" disabled>导出 Excel</button>
+  </div>
+
+  <div class="upload" id="uploadZone">
+    <input type="file" id="fileInput" accept=".xlsx,.xls,.csv">
+    <div class="icon">📂</div>
+    <h3>点击或拖拽上传文件</h3>
+    <p>支持 .xlsx · .xls · .csv</p>
+  </div>
+
+  <div class="table-wrap" id="tableWrap">
+    <div class="table-scroll">
+      <table id="table">
+        <thead></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="legend" id="legend">
+      <div class="legend-item">
+        <div class="legend-dot" style="background:#fde8e8"></div>
+        低于阈值（标红）
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background:#f5f5f5;border:1px solid #e5e5e5"></div>
+        达标
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="footer">Pure Frontend · No Data Upload</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+let data = [], nameCol = '', dateCols = [], threshold = 90;
+let sortCol = '__total__', sortDir = 'desc';
+
+const uploadZone = document.getElementById('uploadZone');
+const fileInput = document.getElementById('fileInput');
+
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); });
+uploadZone.addEventListener('drop', e => {
+  e.preventDefault();
+  if (e.dataTransfer.files[0]) processFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', e => {
+  if (e.target.files[0]) processFile(e.target.files[0]);
+});
+
+async function processFile(f) {
+  uploadZone.querySelector('p').textContent = '正在解析…';
+  try {
+    const wb = XLSX.read(await f.arrayBuffer(), { type: 'array', cellDates: true });
+    const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' });
+    if (!rows.length) { alert('表格为空'); return; }
+
+    const cols = Object.keys(rows[0]);
+    const detected = detect(cols, rows);
+    nameCol = detected.name;
+    dateCols = detected.dates;
+
+    data = rows.map(r => {
+      let sum = 0;
+      dateCols.forEach(c => sum += parseFloat(r[c]) || 0);
+      return { ...r, __total__: Math.round(sum * 100) / 100 };
+    }).sort((a, b) => b.__total__ - a.__total__);
+
+    uploadZone.classList.add('done');
+    uploadZone.querySelector('h3').textContent = f.name;
+    uploadZone.querySelector('p').textContent = `${rows.length} 名学员 · ${dateCols.length} 天数据`;
+
+    const sel = document.getElementById('sortSelect');
+    sel.innerHTML = '<option value="__total__">合计时长</option>' + dateCols.map(c => `<option value="${c}">${c}</option>`).join('');
+
+    document.getElementById('toolbar').classList.add('show');
+    render();
+    document.getElementById('tableWrap').classList.add('show');
+    document.getElementById('legend').classList.add('show');
+    document.getElementById('exportBtn').disabled = false;
+    document.getElementById('clearBtn').disabled = false;
+
+  } catch (err) {
+    uploadZone.querySelector('p').textContent = '支持 .xlsx · .xls · .csv';
+    alert('解析失败：' + err.message);
+  }
+}
+
+function detect(cols, rows) {
+  const kw = ['姓名', 'name', '学员', '学生', '员工', '人员', 'user', 'member'];
+  const name = cols.find(c => kw.some(k => c.toLowerCase().includes(k))) || cols[0];
+  const dates = cols.filter(c => {
+    if (c === name) return false;
+    const vals = rows.slice(0, 5).map(r => parseFloat(r[c]) || 0);
+    return vals.filter(v => !isNaN(v) && v >= 0 && v <= 999).length >= 3;
+  });
+  return { name, dates };
+}
+
+function render() {
+  const th = document.querySelector('#table thead');
+  const tb = document.querySelector('#table tbody');
+  const t = threshold;
+  const arrow = sortDir === 'desc' ? '↓' : '↑';
+
+  th.innerHTML = `<tr><th>#</th><th>${nameCol}</th>${dateCols.map(c => {
+    const s = sortCol === c;
+    return `<th class="${s?'sorted':''}" onclick="sortBy('${c.replace(/'/g,"\\'")}')">${c}<span class="arrow">${s?arrow:''}</span></th>`;
+  }).join('')}<th class="${sortCol==='__total__'?'sorted':''}" onclick="sortBy('__total__')">合计<span class="arrow">${sortCol==='__total__'?arrow:''}</span></th></tr>`;
+
+  tb.innerHTML = data.map((r, i) => {
+    const cells = dateCols.map(c => {
+      const v = parseFloat(r[c]) || 0;
+      const cls = v < t ? 'low' : 'val';
+      return `<td class="${cls}" title="${v < t ? `未达标 ${v}<${t}` : ''}">${fmt(r[c])}</td>`;
+    }).join('');
+    return `<tr><td class="rank">${i + 1}</td><td class="name">${fmt(r[nameCol])}</td>${cells}<td class="total">${fmt(r.__total__)}</td></tr>`;
+  }).join('');
+
+  const total = data.length;
+  const low = data.filter(r => dateCols.some(c => (parseFloat(r[c])||0) < t)).length;
+  document.getElementById('stats').innerHTML = `
+    <div class="stat"><span class="num">${total}</span> 人</div>
+    <div class="stat ok"><span class="num">${total - low}</span> 达标</div>
+    <div class="stat danger"><span class="num">${low}</span> 未达标</div>
+  `;
+}
+
+function sortBy(col) {
+  if (sortCol === col) sortDir = sortDir === 'desc' ? 'asc' : 'desc';
+  else { sortCol = col; sortDir = 'desc'; }
+  apply();
+}
+
+function toggleDir() {
+  sortDir = sortDir === 'desc' ? 'asc' : 'desc';
+  apply();
+}
+
+function sortBySelect() {
+  sortCol = document.getElementById('sortSelect').value;
+  apply();
+}
+
+function apply() {
+  data.sort((a, b) => {
+    const va = parseFloat(a[sortCol]) || 0;
+    const vb = parseFloat(b[sortCol]) || 0;
+    return sortDir === 'desc' ? vb - va : va - vb;
+  });
+  document.getElementById('sortDirBtn').textContent = sortDir === 'desc' ? '↓' : '↑';
+  document.getElementById('sortSelect').value = sortCol;
+  render();
+}
+
+document.getElementById('thresholdInput').addEventListener('change', e => {
+  threshold = parseInt(e.target.value) || 90;
+  if (data.length) render();
+});
+
+function clearAll() {
+  data = [];
+  sortCol = '__total__'; sortDir = 'desc';
+  uploadZone.classList.remove('done');
+  uploadZone.querySelector('h3').textContent = '点击或拖拽上传文件';
+  uploadZone.querySelector('p').textContent = '支持 .xlsx · .xls · .csv';
+  document.getElementById('toolbar').classList.remove('show');
+  document.getElementById('tableWrap').classList.remove('show');
+  document.getElementById('legend').classList.remove('show');
+  document.getElementById('stats').innerHTML = '';
+  document.getElementById('exportBtn').disabled = true;
+  document.getElementById('clearBtn').disabled = true;
+  fileInput.value = '';
+}
+
+function exportData() {
+  const ws = XLSX.utils.json_to_sheet(data.map(r => {
+    const row = {};
+    row[nameCol] = r[nameCol];
+    dateCols.forEach(c => row[c] = r[c]);
+    row['合计时长'] = r.__total__;
+    return row;
+  }));
+  const t = threshold;
+  const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+  for (let R = range.s.r + 1; R <= range.e.r; R++) {
+    for (let C = range.s.c + 1; C <= range.s.c + dateCols.length; C++) {
+      const v = parseFloat(ws[XLSX.utils.encode_cell({r:R,c:C})]?.v || 0) || 0;
+      if (v < t) {
+        ws[XLSX.utils.encode_cell({r:R,c:C})].s = { fill:{fgColor:{rgb:'FDE8E8'}}, font:{color:{rgb:'C0392B'},bold:true} };
+      }
+    }
+  }
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '出勤');
+  XLSX.writeFile(wb, `出勤分析_${new Date().toLocaleDateString('zh-CN').replace(/\//g,'-')}.xlsx`);
+}
+
+function fmt(v) { return v === null || v === undefined || v === '' ? '' : v instanceof Date ? v.toLocaleDateString('zh-CN') : String(v); }
+</script>
+</body>
+</html>
