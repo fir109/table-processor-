@@ -360,12 +360,28 @@
                 const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
                 const rawData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
                 
-                // 找到表头行，过滤出目标列：第0列（昵称）+ 含"听课"关键词 且 不等于"听课总时长" 的列
+                // 找到表头行，过滤出目标列：
+                // 昵称列：列名含"昵称"或"微信"的列（找不到则取第0列兜底）
+                // 听课列：含"听课"关键词 且 不等于"听课总时长" 的列
                 const header = rawData[0] || [];
                 const keepCols = [];
+                
+                // 找昵称列索引
+                let nicknameCol = 0; // 默认第0列
                 for (let i = 0; i < header.length; i++) {
                     const h = String(header[i] || '').trim();
-                    if (i === 0 || (h.includes('听课') && h !== '听课总时长')) {
+                    if (h.includes('昵称') || h.includes('微信')) {
+                        nicknameCol = i;
+                        break;
+                    }
+                }
+                keepCols.push(nicknameCol);
+                
+                // 找听课列
+                for (let i = 0; i < header.length; i++) {
+                    if (i === nicknameCol) continue;
+                    const h = String(header[i] || '').trim();
+                    if (h.includes('听课') && h !== '听课总时长') {
                         keepCols.push(i);
                     }
                 }
