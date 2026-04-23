@@ -358,15 +358,26 @@
             reader.onload = (e) => {
                 workbook = XLSX.read(e.target.result, { type: 'array' });
                 const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-                originalData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+                const rawData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
                 
-                // 为每行计算总时长
-                originalData = originalData.map((row, idx) => {
+                // 找到表头行，过滤出目标列：第0列（昵称）+ 含"听课"关键词的列
+                const header = rawData[0] || [];
+                const keepCols = [];
+                for (let i = 0; i < header.length; i++) {
+                    const h = String(header[i] || '');
+                    if (i === 0 || h.includes('听课')) {
+                        keepCols.push(i);
+                    }
+                }
+                
+                // 只保留目标列
+                const filtered = rawData.map(row => keepCols.map(ci => row[ci] !== undefined ? row[ci] : ''));
+                
+                // 为每行追加总时长列
+                originalData = filtered.map((row, idx) => {
                     if (idx === 0) {
-                        // 表头行，添加"总时长"列
                         return [...row, '总时长'];
                     } else {
-                        // 数据行，计算总和
                         let sum = 0;
                         for (let i = 1; i < row.length; i++) {
                             sum += parseFloat(row[i]) || 0;
